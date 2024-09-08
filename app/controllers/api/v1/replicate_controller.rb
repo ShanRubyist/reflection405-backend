@@ -2,14 +2,14 @@ class Api::V1::ReplicateController < UsageController
   rescue_from RuntimeError do |e|
     render json: { error: e }.to_json, status: 500
   end
-
+  
   def predict
     prompt = params['prompt']
     raise 'prompt can not be empty' unless prompt.present?
 
     aspect_ratio = params['aspect_ratio'] || '1:1'
 
-    model_name = params['model'] || 'black-forest-labs/flux-schnell'
+    model_name = params['model'] || 'lucataco/ollama-reflection-70b'
     model = Replicate.client.retrieve_model(model_name)
     version = model.latest_version
 
@@ -19,17 +19,17 @@ class Api::V1::ReplicateController < UsageController
       data = prediction.refetch
 
       until prediction.finished? do
-        sleep 1
+        # sleep 1
         data = prediction.refetch
       end
 
       raise data.fetch('error') if prediction.failed? || prediction.canceled?
 
       render json: {
-        images: prediction.output
+        images: prediction.output.join
       }
     ensure
-      params.permit(:prompt, :aspect_ratio, :model, :replicate)
+      # params.permit(:prompt, :aspect_ratio, :model, :replicate)
       SavePicToOssJob.perform_later({ user: current_user, model_name: model_name, aspect_ratio: aspect_ratio, prompt: prompt, data: data })
     end
   end

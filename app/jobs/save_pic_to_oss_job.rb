@@ -16,39 +16,19 @@ class SavePicToOssJob < ApplicationJob
     output = data.fetch("output")
     predict_id = data.fetch("id")
     if data.fetch('status') == 'succeeded'
-      cost_credits =
-        case model_name
-        when nil
-          1
-        when 'black-forest-labs/flux-schnell'
-          1
-        when 'black-forest-labs/flux-dev'
-          10
-        when 'black-forest-labs/flux-pro'
-          20
-        end
+      cost_credits = 20
     else
       cost_credits = 0
     end
 
     user
       .replicated_calls
-      .create_with(data: data, output: output, prompt: prompt, aspect_ratio: aspect_ratio, cost_credits: cost_credits, model: model_name)
-      .find_or_create_by(predict_id: predict_id)
-
-    require 'open-uri'
-    if output.is_a?(Array)
-      image = output.first
-    else
-      image = output
-    end
-
-    user
-      .replicated_calls
-      .find_by(predict_id: predict_id)
-      .image
-      .attach(io: URI.open(image), filename: URI(image).path.split('/').last) unless image.empty?
-
+      .create(data: data,
+              output: output.join,
+              prompt: prompt,
+              cost_credits: cost_credits,
+              model: model_name,
+              predict_id: 'predict_id')
   rescue => e
     puts e
   end
